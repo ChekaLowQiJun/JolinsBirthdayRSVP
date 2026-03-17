@@ -17,6 +17,7 @@
   let scene, camera, renderer, raycaster, mouse;
   let ambientFireflies = [];
   let burstFireflies = [];
+  let butterflies = [];
   let hoverScale = 1;
   let targetHoverScale = 1;
   let clock = new THREE.Clock();
@@ -82,7 +83,8 @@
     scene = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 0.3, 6);
+    const camZ = window.innerWidth < 600 ? 8 : 6;
+    camera.position.set(0, 0.3, camZ);
     camera.lookAt(0, 0, 0);
 
     renderer = new THREE.WebGLRenderer({ alpha: true, antialias: !isMobile });
@@ -92,11 +94,11 @@
     if (!isMobile) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-    // Bright sunny garden lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    // Soft garden lighting — angled to preserve envelope color
+    scene.add(new THREE.AmbientLight(0xfff5f5, 0.7));
 
-    const sunLight = new THREE.DirectionalLight(0xfff8e7, 1.0);
-    sunLight.position.set(-2, 8, 5);
+    const sunLight = new THREE.DirectionalLight(0xfff8e7, 0.5);
+    sunLight.position.set(-4, 6, -2);
     if (!isMobile) {
       sunLight.castShadow = true;
       sunLight.shadow.mapSize.width = 512;
@@ -104,16 +106,16 @@
     }
     scene.add(sunLight);
 
-    const warmFill = new THREE.PointLight(0xffecd2, 0.35, 15);
-    warmFill.position.set(-3, 2, 4);
+    const warmFill = new THREE.PointLight(0xffecd2, 0.2, 15);
+    warmFill.position.set(-4, 2, -1);
     scene.add(warmFill);
 
     const skyBounce = new THREE.PointLight(0xd4eaff, 0.15, 12);
-    skyBounce.position.set(2, -1, 3);
+    skyBounce.position.set(3, -1, -1);
     scene.add(skyBounce);
 
-    const rimLight = new THREE.PointLight(0xffffff, 0.25, 10);
-    rimLight.position.set(0, 1, 6);
+    const rimLight = new THREE.PointLight(0xffffff, 0.15, 10);
+    rimLight.position.set(0, 1, 4);
     scene.add(rimLight);
 
     raycaster = new THREE.Raycaster();
@@ -157,7 +159,7 @@
     });
     // Center the extrusion along Z
     bodyGeo.translate(0, 0, -ENVELOPE_DEPTH / 2);
-    envelopeBody = new THREE.Mesh(bodyGeo, makeMat(0xffffff, 0.6));
+    envelopeBody = new THREE.Mesh(bodyGeo, makeMat(0xfde2e8, 0.6));
     envelopeBody.castShadow = true;
     envelopeBody.receiveShadow = true;
     envelopeGroup.add(envelopeBody);
@@ -173,7 +175,7 @@
     const flapMesh = new THREE.Mesh(
       new THREE.ShapeGeometry(flapShape),
       new THREE.MeshStandardMaterial({
-        color: 0xfafafa, side: THREE.DoubleSide, roughness: 0.65, transparent: true, opacity: 1,
+        color: 0xfde2e8, side: THREE.DoubleSide, roughness: 0.65, transparent: true, opacity: 1,
       })
     );
     flapPivot = new THREE.Group();
@@ -407,6 +409,121 @@
 
     ambientFireflies.forEach(draw);
     burstFireflies.forEach(draw);
+
+    // Draw butterflies
+    butterflies.forEach(b => {
+      if (b.life <= 0) return;
+      fireflyCtx.save();
+      fireflyCtx.translate(b.x, b.y);
+      fireflyCtx.rotate(Math.atan2(b.vy, b.vx) * 0.3);
+      fireflyCtx.globalAlpha = b.alpha;
+
+      const wingFlap = Math.sin(b.wingPhase) * 0.7;
+      const s = b.size;
+
+      // Left wing
+      fireflyCtx.save();
+      fireflyCtx.scale(1, wingFlap);
+      fireflyCtx.beginPath();
+      fireflyCtx.moveTo(0, 0);
+      fireflyCtx.bezierCurveTo(-s * 0.4, -s * 0.8, -s * 1.2, -s * 0.6, -s * 0.9, 0);
+      fireflyCtx.bezierCurveTo(-s * 1.0, s * 0.4, -s * 0.3, s * 0.5, 0, 0);
+      fireflyCtx.fillStyle = b.color;
+      fireflyCtx.fill();
+      // Inner wing pattern
+      fireflyCtx.beginPath();
+      fireflyCtx.moveTo(-s * 0.2, -s * 0.1);
+      fireflyCtx.bezierCurveTo(-s * 0.3, -s * 0.4, -s * 0.7, -s * 0.3, -s * 0.5, 0);
+      fireflyCtx.fillStyle = b.innerColor;
+      fireflyCtx.globalAlpha = b.alpha * 0.5;
+      fireflyCtx.fill();
+      fireflyCtx.restore();
+
+      // Right wing
+      fireflyCtx.save();
+      fireflyCtx.scale(1, wingFlap);
+      fireflyCtx.beginPath();
+      fireflyCtx.moveTo(0, 0);
+      fireflyCtx.bezierCurveTo(s * 0.4, -s * 0.8, s * 1.2, -s * 0.6, s * 0.9, 0);
+      fireflyCtx.bezierCurveTo(s * 1.0, s * 0.4, s * 0.3, s * 0.5, 0, 0);
+      fireflyCtx.fillStyle = b.color;
+      fireflyCtx.globalAlpha = b.alpha;
+      fireflyCtx.fill();
+      fireflyCtx.beginPath();
+      fireflyCtx.moveTo(s * 0.2, -s * 0.1);
+      fireflyCtx.bezierCurveTo(s * 0.3, -s * 0.4, s * 0.7, -s * 0.3, s * 0.5, 0);
+      fireflyCtx.fillStyle = b.innerColor;
+      fireflyCtx.globalAlpha = b.alpha * 0.5;
+      fireflyCtx.fill();
+      fireflyCtx.restore();
+
+      // Body
+      fireflyCtx.beginPath();
+      fireflyCtx.ellipse(0, 0, s * 0.08, s * 0.25, 0, 0, Math.PI * 2);
+      fireflyCtx.fillStyle = b.bodyColor;
+      fireflyCtx.globalAlpha = b.alpha;
+      fireflyCtx.fill();
+
+      fireflyCtx.restore();
+      fireflyCtx.globalAlpha = 1;
+    });
+  }
+
+  // =============================================
+  // Butterflies
+  // =============================================
+
+  function spawnButterflies(count) {
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    const wingColors = [
+      { color: '#f9a8d4', innerColor: '#fce7f3', bodyColor: '#9d174d' },
+      { color: '#c4b5fd', innerColor: '#ede9fe', bodyColor: '#5b21b6' },
+      { color: '#fbbf24', innerColor: '#fef3c7', bodyColor: '#92400e' },
+      { color: '#fda4af', innerColor: '#ffe4e6', bodyColor: '#9f1239' },
+      { color: '#93c5fd', innerColor: '#dbeafe', bodyColor: '#1e40af' },
+      { color: '#fdba74', innerColor: '#ffedd5', bodyColor: '#9a3412' },
+    ];
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.8;
+      const speed = 1 + Math.random() * 2.5;
+      const palette = wingColors[Math.floor(Math.random() * wingColors.length)];
+      butterflies.push({
+        x: cx + (Math.random() - 0.5) * 60,
+        y: cy + (Math.random() - 0.5) * 60,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 1.5,
+        size: 10 + Math.random() * 14,
+        color: palette.color,
+        innerColor: palette.innerColor,
+        bodyColor: palette.bodyColor,
+        alpha: 1,
+        life: 1,
+        maxLife: 4 + Math.random() * 4,
+        wingPhase: Math.random() * Math.PI * 2,
+        wingSpeed: 6 + Math.random() * 4,
+        wanderAngle: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+
+  function updateButterflies(dt) {
+    for (let i = butterflies.length - 1; i >= 0; i--) {
+      const b = butterflies[i];
+      // Flutter wing
+      b.wingPhase += b.wingSpeed * dt;
+      // Gentle wandering path
+      b.wanderAngle += (Math.random() - 0.5) * 0.15;
+      b.vx += Math.cos(b.wanderAngle) * 0.04;
+      b.vy += Math.sin(b.wanderAngle) * 0.04 - 0.03;
+      b.vx *= 0.99;
+      b.vy *= 0.99;
+      b.x += b.vx;
+      b.y += b.vy;
+      b.life -= dt / b.maxLife;
+      b.alpha = Math.max(0, Math.min(1, b.life * 2));
+      if (b.life <= 0) butterflies.splice(i, 1);
+    }
   }
 
   // =============================================
@@ -632,9 +749,10 @@
       x: FLAP_ANGLE_OPEN, duration: 0.3, ease: 'elastic.out(1, 0.6)',
     });
 
-    // 5. Firefly burst + golden bloom flash
+    // 5. Butterfly + firefly burst + golden bloom flash
     tl.call(() => {
-      spawnBurstFireflies(isMobile ? 40 : 80);
+      spawnButterflies(isMobile ? 8 : 15);
+      spawnBurstFireflies(isMobile ? 20 : 40);
       goldenBloom();
     }, null, '-=0.5');
 
@@ -752,6 +870,16 @@
     });
 
     gsap.to(closeBtn, { delay: 1.5, onStart: () => closeBtn.classList.add('active') });
+
+    // Show scroll arrow
+    const scrollArrow = document.getElementById('scroll-arrow');
+    const scrollTarget = document.getElementById('letter-content');
+    gsap.to(scrollArrow, { opacity: 1, duration: 0.5, delay: 1.8 });
+    const hideArrowOnScroll = () => {
+      gsap.to(scrollArrow, { opacity: 0, duration: 0.3 });
+      scrollTarget.removeEventListener('scroll', hideArrowOnScroll);
+    };
+    scrollTarget.addEventListener('scroll', hideArrowOnScroll);
     spawnBurstFireflies(isMobile ? 10 : 20);
   }
 
@@ -805,7 +933,7 @@
     flapPivot.rotation.set(0, 0, 0);
     sealGroup.scale.set(1, 1, 1);
     sealGroup.rotation.set(0, 0, 0);
-    camera.position.set(0, 0.3, 6);
+    camera.position.set(0, 0.3, window.innerWidth < 600 ? 8 : 6);
     camera.lookAt(0, 0, 0);
 
     envelopeTargetRotY = envelopeCurrentRotY = 0;
@@ -856,6 +984,7 @@
     }
 
     updateFireflies(dt);
+    updateButterflies(dt);
     renderFireflies();
     renderer.render(scene, camera);
   }
