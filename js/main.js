@@ -890,24 +890,15 @@
     }
 
     btn.disabled = true;
-    btn.textContent = 'Sending...';
-    status.textContent = '';
+    btn.textContent = 'Added!';
+    status.textContent = 'Thank you, ' + name + '!';
+    status.className = 'rsvp-status success';
 
-    // Log RSVP to Google Sheets
-    logRSVP(name).then(() => {
-      status.textContent = 'Thank you, ' + name + '! Opening calendar...';
-      status.className = 'rsvp-status success';
-      btn.textContent = 'Added!';
+    // Open calendar immediately (must be synchronous from user gesture for mobile)
+    openGoogleCalendar(name);
 
-      // Open Google Calendar after a short delay
-      setTimeout(() => openGoogleCalendar(name), 800);
-    }).catch(() => {
-      // Still open calendar even if sheet logging fails
-      status.textContent = 'RSVP noted! Opening calendar...';
-      status.className = 'rsvp-status success';
-      btn.textContent = 'Added!';
-      setTimeout(() => openGoogleCalendar(name), 800);
-    });
+    // Log RSVP to Google Sheets in background
+    logRSVP(name);
   }
 
   function logRSVP(name) {
