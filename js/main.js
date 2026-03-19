@@ -1,28 +1,21 @@
-// =============================================
-// 21st Birthday — Summer Garden Invitation
-// Three.js Envelope + GSAP + Fireflies
-// =============================================
-
 (function () {
   'use strict';
 
-  // ---- Mobile detection ----
   const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     || ('ontouchstart' in window && window.innerWidth < 1024);
   const isTouchDevice = 'ontouchstart' in window;
 
-  // ---- State ----
   let isEnvelopeOpen = false;
   let isAnimating = false;
   let scene, camera, renderer, raycaster, mouse;
   let ambientFireflies = [];
   let burstFireflies = [];
   let butterflies = [];
+  let confettiPieces = [];
   let hoverScale = 1;
   let targetHoverScale = 1;
   let clock = new THREE.Clock();
 
-  // ---- Envelope refs ----
   let envelopeGroup;
   let envelopeBody;
   let flapPivot;
@@ -32,7 +25,6 @@
   let activeTimeline = null;
   let sealParticles = [];
 
-  // ---- Drag rotation ----
   let isDragging = false;
   let dragStart = { x: 0, y: 0 };
   let envelopeTargetRotY = 0;
@@ -42,16 +34,11 @@
   let dragMoved = false;
   let touchStartTime = 0;
 
-  // ---- Constants ----
   const ENVELOPE_WIDTH = 3.2;
   const ENVELOPE_HEIGHT = 2.2;
   const ENVELOPE_DEPTH = 0.12;
   const FLAP_ANGLE_CLOSED = 0;
   const FLAP_ANGLE_OPEN = -Math.PI * 0.85;
-
-  // =============================================
-  // Init
-  // =============================================
 
   function init() {
     createScene();
@@ -75,10 +62,6 @@
     }, 1200);
   }
 
-  // =============================================
-  // Three.js Scene
-  // =============================================
-
   function createScene() {
     scene = new THREE.Scene();
 
@@ -94,7 +77,6 @@
     if (!isMobile) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-    // Soft garden lighting — angled to preserve envelope color
     scene.add(new THREE.AmbientLight(0xfff5f5, 0.7));
 
     const sunLight = new THREE.DirectionalLight(0xfff8e7, 0.5);
@@ -122,10 +104,6 @@
     mouse = new THREE.Vector2();
   }
 
-  // =============================================
-  // 3D Envelope — Clean white, rounded edges, pink heart, tiny flowers
-  // =============================================
-
   function createRoundedRectShape(w, h, r) {
     const shape = new THREE.Shape();
     const hw = w / 2, hh = h / 2;
@@ -148,7 +126,6 @@
       color, roughness, transparent: true, opacity: 1,
     });
 
-    // Rounded body using ExtrudeGeometry
     const bodyShape = createRoundedRectShape(ENVELOPE_WIDTH, ENVELOPE_HEIGHT, 0.15);
     const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, {
       depth: ENVELOPE_DEPTH,
@@ -157,14 +134,12 @@
       bevelSize: 0.02,
       bevelSegments: 3,
     });
-    // Center the extrusion along Z
     bodyGeo.translate(0, 0, -ENVELOPE_DEPTH / 2);
     envelopeBody = new THREE.Mesh(bodyGeo, makeMat(0xfde2e8, 0.6));
     envelopeBody.castShadow = true;
     envelopeBody.receiveShadow = true;
     envelopeGroup.add(envelopeBody);
 
-    // Flap (with softly curved edges)
     const hw = ENVELOPE_WIDTH / 2;
     const flapTip = ENVELOPE_HEIGHT * 0.55;
     const flapShape = new THREE.Shape();
@@ -184,7 +159,6 @@
     flapPivot.name = 'flapPivot';
     envelopeGroup.add(flapPivot);
 
-    // Seal group (pink disc + red heart)
     sealGroup = new THREE.Group();
     sealGroup.position.set(0, ENVELOPE_HEIGHT * 0.05, ENVELOPE_DEPTH / 2 + 0.01);
 
@@ -208,7 +182,6 @@
     sealGroup.add(heartMesh);
     envelopeGroup.add(sealGroup);
 
-    // Tiny flowers
     envelopeFlowerGroups = [];
     const flowers = [
       { pos: [-1.15, -0.65], color: 0xfda4af, size: 0.04 },
@@ -261,15 +234,14 @@
     return shape;
   }
 
-  // =============================================
-  // Firefly System (2D Canvas)
-  // =============================================
-
   let fireflyCtx, fireflyCanvas;
+  let confettiCtx, confettiCanvas;
 
   function initFireflyCanvas() {
     fireflyCanvas = document.getElementById('firefly-canvas');
     fireflyCtx = fireflyCanvas.getContext('2d');
+    confettiCanvas = document.getElementById('confetti-canvas');
+    confettiCtx = confettiCanvas.getContext('2d');
     resizeFireflyCanvas();
   }
 
@@ -277,6 +249,10 @@
     if (!fireflyCanvas) return;
     fireflyCanvas.width = window.innerWidth;
     fireflyCanvas.height = window.innerHeight;
+    if (confettiCanvas) {
+      confettiCanvas.width = window.innerWidth;
+      confettiCanvas.height = window.innerHeight;
+    }
   }
 
   function spawnAmbientFireflies(count) {
@@ -290,7 +266,6 @@
   }
 
   function createFirefly(x, y, isBurst) {
-    // Soft white/gold for sunny garden
     const colors = ['#ffffff', '#fef3c7', '#fde68a', '#fcd34d', '#fffbeb', '#e0f2fe'];
     return {
       x, y,
@@ -307,7 +282,6 @@
       glowSpeed: 1 + Math.random() * 2,
       isBurst,
       trail: [],
-      // Spiral (some burst fireflies spiral outward)
       angularVel: isBurst ? (Math.random() - 0.5) * 0.05 : 0,
     };
   }
@@ -322,10 +296,9 @@
       ff.vx = Math.cos(angle) * speed;
       ff.vy = Math.sin(angle) * speed - 1.5;
       ff.size = Math.random() * 5 + 3;
-      // Some spiral, some float like embers
       if (Math.random() > 0.6) {
         ff.angularVel = (Math.random() - 0.5) * 0.08;
-        ff.vy -= 1; // more upward
+        ff.vy -= 1;
       }
       burstFireflies.push(ff);
     }
@@ -350,7 +323,6 @@
 
     for (let i = burstFireflies.length - 1; i >= 0; i--) {
       const ff = burstFireflies[i];
-      // Spiral motion
       if (ff.angularVel) {
         const speed = Math.sqrt(ff.vx * ff.vx + ff.vy * ff.vy);
         const a = Math.atan2(ff.vy, ff.vx) + ff.angularVel;
@@ -410,7 +382,6 @@
     ambientFireflies.forEach(draw);
     burstFireflies.forEach(draw);
 
-    // Draw butterflies
     butterflies.forEach(b => {
       if (b.life <= 0) return;
       fireflyCtx.save();
@@ -421,7 +392,6 @@
       const wingFlap = Math.sin(b.wingPhase) * 0.7;
       const s = b.size;
 
-      // Left wing
       fireflyCtx.save();
       fireflyCtx.scale(1, wingFlap);
       fireflyCtx.beginPath();
@@ -430,7 +400,6 @@
       fireflyCtx.bezierCurveTo(-s * 1.0, s * 0.4, -s * 0.3, s * 0.5, 0, 0);
       fireflyCtx.fillStyle = b.color;
       fireflyCtx.fill();
-      // Inner wing pattern
       fireflyCtx.beginPath();
       fireflyCtx.moveTo(-s * 0.2, -s * 0.1);
       fireflyCtx.bezierCurveTo(-s * 0.3, -s * 0.4, -s * 0.7, -s * 0.3, -s * 0.5, 0);
@@ -439,7 +408,6 @@
       fireflyCtx.fill();
       fireflyCtx.restore();
 
-      // Right wing
       fireflyCtx.save();
       fireflyCtx.scale(1, wingFlap);
       fireflyCtx.beginPath();
@@ -457,7 +425,6 @@
       fireflyCtx.fill();
       fireflyCtx.restore();
 
-      // Body
       fireflyCtx.beginPath();
       fireflyCtx.ellipse(0, 0, s * 0.08, s * 0.25, 0, 0, Math.PI * 2);
       fireflyCtx.fillStyle = b.bodyColor;
@@ -468,10 +435,6 @@
       fireflyCtx.globalAlpha = 1;
     });
   }
-
-  // =============================================
-  // Butterflies
-  // =============================================
 
   function spawnButterflies(count) {
     const cx = window.innerWidth / 2;
@@ -510,9 +473,7 @@
   function updateButterflies(dt) {
     for (let i = butterflies.length - 1; i >= 0; i--) {
       const b = butterflies[i];
-      // Flutter wing
       b.wingPhase += b.wingSpeed * dt;
-      // Gentle wandering path
       b.wanderAngle += (Math.random() - 0.5) * 0.15;
       b.vx += Math.cos(b.wanderAngle) * 0.04;
       b.vy += Math.sin(b.wanderAngle) * 0.04 - 0.03;
@@ -526,12 +487,61 @@
     }
   }
 
-  // =============================================
-  // Floating Elements (leaves, butterflies, dandelion seeds)
-  // =============================================
+  function spawnConfetti(count) {
+    const colors = ['#f43f5e', '#fbbf24', '#a78bfa', '#34d399', '#60a5fa', '#fb923c', '#f9a8d4', '#c084fc'];
+    for (let i = 0; i < count; i++) {
+      const x = window.innerWidth * 0.5 + (Math.random() - 0.5) * window.innerWidth * 0.6;
+      confettiPieces.push({
+        x,
+        y: -10 - Math.random() * window.innerHeight * 0.3,
+        vx: (Math.random() - 0.5) * 4,
+        vy: 1.5 + Math.random() * 3,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 10 + Math.random() * 12,
+        aspect: 0.5 + Math.random() * 0.5,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.15,
+        wobblePhase: Math.random() * Math.PI * 2,
+        wobbleSpeed: 2 + Math.random() * 3,
+        life: 1,
+        maxLife: 3 + Math.random() * 3,
+      });
+    }
+  }
+
+  function updateConfetti(dt) {
+    for (let i = confettiPieces.length - 1; i >= 0; i--) {
+      const c = confettiPieces[i];
+      c.wobblePhase += c.wobbleSpeed * dt;
+      c.vx += Math.sin(c.wobblePhase) * 0.15;
+      c.vx *= 0.98;
+      c.vy += 0.3 * dt * 60;
+      c.vy = Math.min(c.vy, 5);
+      c.x += c.vx;
+      c.y += c.vy;
+      c.rotation += c.rotSpeed;
+      c.life -= dt / c.maxLife;
+      if (c.life <= 0 || c.y > window.innerHeight + 20) confettiPieces.splice(i, 1);
+    }
+  }
+
+  function renderConfetti() {
+    confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    confettiPieces.forEach(c => {
+      confettiCtx.save();
+      confettiCtx.translate(c.x, c.y);
+      confettiCtx.rotate(c.rotation);
+      confettiCtx.globalAlpha = Math.min(1, c.life * 2);
+      confettiCtx.shadowColor = c.color;
+      confettiCtx.shadowBlur = 8;
+      confettiCtx.fillStyle = c.color;
+      confettiCtx.fillRect(-c.size / 2, -c.size * c.aspect / 2, c.size, c.size * c.aspect);
+      confettiCtx.restore();
+    });
+    confettiCtx.globalAlpha = 1;
+  }
 
   function spawnFloatingElements(count) {
-    // Soft light particles (like pollen / dust motes)
     const particleCount = isMobile ? 6 : 14;
     for (let i = 0; i < particleCount; i++) {
       const el = document.createElement('div');
@@ -558,27 +568,20 @@
     });
   }
 
-  // =============================================
-  // Interactions
-  // =============================================
-
   function addEventListeners() {
     const canvas = renderer.domElement;
     canvas.style.touchAction = 'none';
 
-    // Mouse
     canvas.addEventListener('mousedown', onDragStart);
     window.addEventListener('mousemove', onDragMove);
     window.addEventListener('mouseup', onDragEnd);
     canvas.addEventListener('click', onCanvasClick);
     canvas.addEventListener('mousemove', onCanvasHover);
 
-    // Touch
     canvas.addEventListener('touchstart', onTouchStart, { passive: false });
     window.addEventListener('touchmove', onTouchMove, { passive: false });
     window.addEventListener('touchend', onTouchEnd);
 
-    // Resize + orientation
     window.addEventListener('resize', debounce(onWindowResize, 100));
     window.addEventListener('orientationchange', () => setTimeout(onWindowResize, 150));
 
@@ -588,7 +591,6 @@
       if (e.key === 'Enter') handleRSVP();
     });
 
-    // Prevent overscroll on body, allow scroll on letter
     document.body.addEventListener('touchmove', (e) => {
       if (!e.target.closest('.letter-content')) e.preventDefault();
     }, { passive: false });
@@ -599,7 +601,6 @@
     return function() { clearTimeout(timer); timer = setTimeout(fn, ms); };
   }
 
-  // ---- Mouse drag ----
   function onDragStart(e) {
     if (isEnvelopeOpen || isAnimating) return;
     isDragging = true;
@@ -634,7 +635,6 @@
     checkEnvelopeHover();
   }
 
-  // ---- Touch ----
   function onTouchStart(e) {
     if (isEnvelopeOpen || isAnimating) return;
     if (e.touches.length === 1) {
@@ -662,9 +662,7 @@
 
   function onTouchEnd(e) {
     if (isDragging && !dragMoved && (Date.now() - touchStartTime < 300)) {
-      // Tap detected
       updateMouse(dragStart.x, dragStart.y);
-      // Brief scale pulse for touch feedback
       if (!isEnvelopeOpen && !isAnimating) {
         gsap.to(envelopeGroup.scale, { x: 1.08, y: 1.08, z: 1.08, duration: 0.1, yoyo: true, repeat: 1, ease: 'power1.out' });
       }
@@ -694,10 +692,6 @@
     }
   }
 
-  // =============================================
-  // ENHANCED Envelope Open Animation
-  // =============================================
-
   function openEnvelope() {
     if (isAnimating || isEnvelopeOpen) return;
     isAnimating = true;
@@ -713,7 +707,6 @@
     const tl = gsap.timeline({ onComplete: () => { isAnimating = false; } });
     activeTimeline = tl;
 
-    // 1. Snap to front-facing
     tl.to(envelopeGroup.rotation, {
       y: 0, x: 0.05, duration: 0.4, ease: 'power2.out',
       onUpdate: () => {
@@ -722,7 +715,6 @@
       }
     });
 
-    // 2. Anticipation — wiggle + scale pulse
     tl.to(envelopeGroup.scale, { x: 1.04, y: 1.04, z: 1.04, duration: 0.15, yoyo: true, repeat: 1 }, '+=0.1');
     tl.to(envelopeGroup.rotation, {
       z: 0.05, duration: 0.08, yoyo: true, repeat: 5, ease: 'power1.inOut',
@@ -730,7 +722,6 @@
     tl.set(envelopeGroup.rotation, { z: 0 });
     tl.set(envelopeGroup.scale, { x: 1, y: 1, z: 1 });
 
-    // 3. Seal break — spin + shrink + particle burst + flash
     tl.to(sealGroup.rotation, { z: Math.PI * 2, duration: 0.4, ease: 'power2.in' }, '+=0.05');
     tl.to(sealGroup.scale, { x: 0, y: 0, z: 0, duration: 0.35, ease: 'back.in(2)' }, '<');
     tl.call(() => {
@@ -738,7 +729,6 @@
       flashLight();
     });
 
-    // 4. Flap opens — two-phase with overshoot
     tl.to(flapPivot.rotation, {
       x: FLAP_ANGLE_OPEN * 0.4, duration: 0.6, ease: 'power2.out',
     }, '+=0.15');
@@ -749,14 +739,12 @@
       x: FLAP_ANGLE_OPEN, duration: 0.3, ease: 'elastic.out(1, 0.6)',
     });
 
-    // 5. Butterfly + firefly burst + golden bloom flash
     tl.call(() => {
       spawnButterflies(isMobile ? 8 : 15);
       spawnBurstFireflies(isMobile ? 20 : 40);
       goldenBloom();
     }, null, '-=0.5');
 
-    // Warm up lighting briefly
     tl.call(() => {
       const flash = new THREE.PointLight(0xfbbf24, 1.5, 12);
       flash.position.set(0, 0, 3);
@@ -764,15 +752,12 @@
       gsap.to(flash, { intensity: 0, duration: 1.5, onComplete: () => scene.remove(flash) });
     }, null, '<');
 
-    // 6. Camera pulls back
     tl.to(camera.position, { z: 7.5, y: 0.6, duration: 1.2, ease: 'power2.inOut' }, '+=0.2');
 
-    // 7. Envelope tilts back and floats up + fade out
     tl.to(envelopeGroup.rotation, { x: 0.6, duration: 1.2, ease: 'power2.in' }, '+=0.1');
     tl.to(envelopeGroup.position, { y: 4, duration: 1.2, ease: 'power2.in' }, '<');
     tl.call(() => fadeEnvelopeMaterials(0, 0.8), null, '<');
 
-    // 8. Show letter
     tl.call(() => {
       envelopeGroup.visible = false;
       document.getElementById('canvas-container').style.zIndex = '-1';
@@ -780,7 +765,6 @@
     }, null, '+=0.3');
   }
 
-  // ---- Seal break particles ----
   function spawnSealParticles() {
     const count = isMobile ? 8 : 15;
     const colors = [0xfda4af, 0xfbbf24, 0xf43f5e, 0xfecdd3, 0xffffff];
@@ -790,7 +774,6 @@
         color: colors[i % colors.length], transparent: true, opacity: 1, roughness: 0.4,
       });
       const particle = new THREE.Mesh(geo, mat);
-      // Start at seal position (world coords)
       particle.position.copy(sealGroup.position);
       particle.position.y += envelopeGroup.position.y;
       scene.add(particle);
@@ -842,17 +825,14 @@
     });
   }
 
-  // ---- Show letter with staggered reveal ----
   function showLetter() {
     const overlay = document.getElementById('letter-overlay');
     const letterContent = overlay.querySelector('.letter-content');
     const closeBtn = document.getElementById('close-letter-btn');
 
     overlay.classList.add('active');
-    // Fade in overlay with a semi-transparent backdrop to sit above the 3D canvas
     gsap.to(overlay, { opacity: 1, backgroundColor: 'rgba(0,0,0,0.4)', duration: 0.8, ease: 'power2.out' });
 
-    // Letter slides up + scales in + subtle rotation
     gsap.fromTo(letterContent, {
       y: window.innerHeight * 0.6, scale: 0.85, rotation: 2,
     }, {
@@ -860,7 +840,6 @@
       duration: 1.2, ease: 'power3.out', delay: 0.2,
     });
 
-    // Staggered reveal of inner content
     const staggerEls = overlay.querySelectorAll('.letter-stagger');
     gsap.fromTo(staggerEls, {
       opacity: 0, y: 15,
@@ -871,19 +850,22 @@
 
     gsap.to(closeBtn, { delay: 1.5, onStart: () => closeBtn.classList.add('active') });
 
-    // Show scroll arrow
     const scrollArrow = document.getElementById('scroll-arrow');
     const scrollTarget = document.getElementById('letter-content');
     gsap.to(scrollArrow, { opacity: 1, duration: 0.5, delay: 1.8 });
-    const hideArrowOnScroll = () => {
+    let arrowHidden = false;
+    const hideArrow = () => {
+      if (arrowHidden) return;
+      arrowHidden = true;
       gsap.to(scrollArrow, { opacity: 0, duration: 0.3 });
-      scrollTarget.removeEventListener('scroll', hideArrowOnScroll);
+      scrollTarget.removeEventListener('scroll', hideArrow);
+      scrollTarget.removeEventListener('touchmove', hideArrow);
     };
-    scrollTarget.addEventListener('scroll', hideArrowOnScroll);
+    scrollTarget.addEventListener('scroll', hideArrow, { passive: true });
+    scrollTarget.addEventListener('touchmove', hideArrow, { passive: true });
     spawnBurstFireflies(isMobile ? 10 : 20);
   }
 
-  // ---- Close letter ----
   function closeLetter() {
     const overlay = document.getElementById('letter-overlay');
     const letterContent = overlay.querySelector('.letter-content');
@@ -897,14 +879,9 @@
     });
   }
 
-  // =============================================
-  // Reset
-  // =============================================
-
   function resetEnvelope() {
     if (activeTimeline) { activeTimeline.kill(); activeTimeline = null; }
 
-    // Kill tweens
     gsap.killTweensOf(envelopeGroup.position);
     gsap.killTweensOf(envelopeGroup.rotation);
     gsap.killTweensOf(envelopeGroup.scale);
@@ -913,7 +890,6 @@
     gsap.killTweensOf(flapPivot.rotation);
     gsap.killTweensOf(camera.position);
 
-    // Reset all materials
     envelopeGroup.traverse(child => {
       if (child.isMesh) {
         const mats = Array.isArray(child.material) ? child.material : [child.material];
@@ -924,7 +900,6 @@
       }
     });
 
-    // Restore canvas z-index and visibility
     document.getElementById('canvas-container').style.zIndex = '5';
     envelopeGroup.visible = true;
     envelopeGroup.position.set(0, -0.2, 0);
@@ -948,7 +923,6 @@
     prompt.style.display = '';
     gsap.fromTo(prompt, { opacity: 0 }, { opacity: 1, duration: 0.5 });
 
-    // Reset staggered letter content opacity
     document.querySelectorAll('.letter-stagger').forEach(el => {
       el.style.opacity = '';
       el.style.transform = '';
@@ -962,10 +936,6 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     resizeFireflyCanvas();
   }
-
-  // =============================================
-  // Animation Loop
-  // =============================================
 
   function animate() {
     requestAnimationFrame(animate);
@@ -985,23 +955,18 @@
 
     updateFireflies(dt);
     updateButterflies(dt);
+    updateConfetti(dt);
     renderFireflies();
+    renderConfetti();
     renderer.render(scene, camera);
   }
 
-  // =============================================
-  // RSVP + Google Calendar
-  // =============================================
-
-  // ---- CONFIGURATION — Update these with your event details ----
   const EVENT_CONFIG = {
-    title: '21st Birthday Celebration',
-    // Format: YYYYMMDDTHHMMSS (local time)
-    startDate: '20260615T190000',
-    endDate:   '20260615T230000',
-    location: 'Venue Name, City',
-    description: 'You are cordially invited to celebrate this special milestone!',
-    // Google Apps Script web app URL — see setup instructions in README
+    title: 'Jolin\'s 21st partyay!',
+    startDate: '20260420T173000',
+    endDate:   '20260420T223000',
+    location: 'Garden Pod @ Gardens By The Bay, S018953',
+    description: 'Be there or be square!',
     googleSheetURL: 'https://script.google.com/macros/s/AKfycby2pGbyNS7X8humsgw-XWDzZLXjUfpSq2BmfHLfkVRC73UdwoJvNFemavOiDYUfEUo/exec',
   };
 
@@ -1021,22 +986,33 @@
     btn.disabled = true;
     btn.textContent = 'Added!';
 
-    // Log RSVP to Google Sheets in background
+    spawnConfetti(isMobile ? 40 : 80);
     logRSVP(name);
 
-    // Show tappable calendar link (works in Telegram/in-app browsers)
     const calURL = buildCalendarURL(name);
-    status.innerHTML = 'Thank you, ' + name + '!<br>' +
-      '<a href="' + calURL + '" target="_blank" rel="noopener" ' +
-      'style="display:inline-block;margin-top:0.5rem;padding:0.5rem 1.5rem;' +
-      'background:linear-gradient(135deg,#4285f4,#357ae8);color:#fff;' +
-      'border-radius:6px;text-decoration:none;font-weight:600;font-size:0.9rem;">' +
-      'Add to Google Calendar</a>';
+    status.innerHTML = 'Thank you, ' + name + '!';
     status.className = 'rsvp-status success';
+
+    setTimeout(() => {
+      const calLink = document.createElement('a');
+      calLink.href = calURL;
+      calLink.target = '_blank';
+      calLink.rel = 'noopener';
+      calLink.textContent = 'Add to Google Calendar';
+      calLink.style.cssText = 'display:inline-block;margin-top:0.5rem;padding:0.5rem 1.5rem;' +
+        'background:linear-gradient(135deg,#4285f4,#357ae8);color:#fff;' +
+        'border-radius:6px;text-decoration:none;font-weight:600;font-size:0.9rem;opacity:0;transition:opacity 0.4s ease;';
+      status.appendChild(document.createElement('br'));
+      status.appendChild(calLink);
+      requestAnimationFrame(() => {
+        calLink.style.opacity = '1';
+        const scrollTarget = document.getElementById('letter-content');
+        scrollTarget.scrollTo({ top: scrollTarget.scrollHeight, behavior: 'smooth' });
+      });
+    }, 1000);
   }
 
   function logRSVP(name) {
-    // If no Google Sheet URL configured, just resolve
     if (!EVENT_CONFIG.googleSheetURL) {
       console.log('RSVP received (no Google Sheet configured):', name);
       return Promise.resolve();
@@ -1058,15 +1034,11 @@
       action: 'TEMPLATE',
       text: EVENT_CONFIG.title,
       dates: EVENT_CONFIG.startDate + '/' + EVENT_CONFIG.endDate,
-      details: 'RSVP by: ' + name + '\n\n' + EVENT_CONFIG.description,
+      details: EVENT_CONFIG.description,
       location: EVENT_CONFIG.location,
     });
     return 'https://calendar.google.com/calendar/render?' + params.toString();
   }
-
-  // =============================================
-  // Start
-  // =============================================
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

@@ -1,21 +1,3 @@
-// ================================================
-// Google Apps Script — RSVP Logger
-// ================================================
-// SETUP INSTRUCTIONS:
-//
-// 1. Go to https://script.google.com and create a new project
-// 2. Paste this entire file into the editor (replace any existing code)
-// 3. Click "Deploy" → "New deployment"
-// 4. Choose type: "Web app"
-// 5. Set "Execute as": Me
-// 6. Set "Who has access": Anyone
-// 7. Click "Deploy" and copy the Web App URL
-// 8. Paste the URL into EVENT_CONFIG.googleSheetURL in js/main.js
-//
-// A Google Sheet named "Birthday RSVPs" will be auto-created
-// in your Google Drive when the first RSVP comes in.
-// ================================================
-
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
@@ -53,7 +35,6 @@ function getOrCreateSheet(name) {
   return ss;
 }
 
-// Test function — run this to verify the script works
 function testDoPost() {
   var e = {
     postData: {

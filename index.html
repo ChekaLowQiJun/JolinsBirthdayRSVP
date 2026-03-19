@@ -71,6 +71,7 @@
 
     /* ====== FIREFLY CANVAS ====== */
     #firefly-canvas { position: fixed; inset: 0; z-index: 6; pointer-events: none; }
+    #confetti-canvas { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
 
     /* ====== VIGNETTE ====== */
     .vignette {
@@ -247,7 +248,7 @@
       <div class="loader-dot"></div>
       <div class="loader-dot"></div>
     </div>
-    <p class="font-serif text-2xl sm:text-3xl md:text-4xl tracking-widest uppercase" style="letter-spacing:0.2em; color: #ffffff; padding: 0 1rem;">Preparing your invitation</p>
+    <p class="font-serif text-2xl sm:text-3xl md:text-4xl tracking-widest uppercase" style="letter-spacing:0.2em; color: #ffffff; padding: 0 1rem; text-align: center; width: 100%; max-width: 90vw;">Preparing your invitation</p>
   </div>
 
   <!-- Photo background -->
@@ -269,6 +270,8 @@
 
   <!-- Fireflies -->
   <canvas id="firefly-canvas"></canvas>
+  <!-- Confetti -->
+  <canvas id="confetti-canvas"></canvas>
 
   <!-- Vignette -->
   <div class="vignette"></div>
